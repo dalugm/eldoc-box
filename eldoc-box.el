@@ -62,6 +62,7 @@
 ;; - ‘eldoc-box-cleanup-interval’
 ;; - ‘eldoc-box-fringe-use-same-bg’
 ;; - ‘eldoc-box-self-insert-command-list’
+;; - ‘eldoc-box-use-visible-frame-map’
 
 ;;; Code:
 
@@ -116,6 +117,10 @@ different sources.
 This separator is used for the documentation shown in
 ‘eldoc-box-bover-mode’ but not ‘eldoc-box-help-at-point’."
   :type 'string)
+
+(defcustom eldoc-box-use-visible-frame-map nil
+  "If non-nil, use `eldoc-box-visible-frame-map' when doc frame is visible."
+  :type 'boolean)
 
 (defvar eldoc-box-frame-parameters
   '(;; make the childframe unseen when first created
@@ -200,6 +205,7 @@ See `eldoc-box-inhibit-display-when-moving'."
   :type '(repeat symbol))
 
 ;;;;; Function
+
 (defvar eldoc-box--inhibit-childframe nil
   "If non-nil, inhibit display of childframe.")
 
@@ -209,6 +215,11 @@ See `eldoc-box-inhibit-display-when-moving'."
 (defun eldoc-box-quit-frame ()
   "Hide documentation childframe."
   (interactive)
+  ;; Remove `eldoc-box-visible-frame-map'.
+  (when eldoc-box-use-visible-frame-map
+    (dolist (mode '(eldoc-box-hover-mode eldoc-box-hover-at-point-mode))
+      (setq minor-mode-overriding-map-alist
+            (assq-delete-all mode minor-mode-overriding-map-alist))))
   (when (and eldoc-box--frame (frame-live-p eldoc-box--frame))
     (make-frame-invisible eldoc-box--frame t)))
 
@@ -281,6 +292,8 @@ If (point) != last point, cleanup frame.")
 
 ;; Please compiler.
 (defvar eldoc-box-hover-mode)
+(defvar eldoc-box-visible-frame-map)
+
 (defun eldoc-box--display (str)
   "Display STR in childframe.
 STR has to be a proper documentation, not empty string, not nil, etc."
@@ -456,13 +469,20 @@ Checkout `lsp-ui-doc--make-frame', `lsp-ui-doc--move-frame'."
         (set-face-background 'child-frame-border
                              (face-attribute 'eldoc-box-border :background)
                              frame))
-      ;; set size
+
+      ;; Add `eldoc-box-visible-frame-map'.
+      (when eldoc-box-use-visible-frame-map
+        (dolist (mode '(eldoc-box-hover-mode eldoc-box-hover-at-point-mode))
+          (setf (alist-get mode minor-mode-overriding-map-alist)
+                eldoc-box-visible-frame-map)))
+
+      ;; Set size.
       (eldoc-box--update-childframe-geometry frame window)
+      ;; Set frame.
       (setq eldoc-box--frame frame)
       (with-selected-frame frame
         (run-hook-with-args 'eldoc-box-frame-hook main-frame))
       (make-frame-visible frame))))
-
 
 ;;;;; ElDoc
 
@@ -589,6 +609,44 @@ display the docs in echo area depending on
                            eldoc-box-doc-separator))))
     (when (eldoc-box--eldoc-message-function "%s" doc)
       (eldoc-display-in-echo-area docs interactive))))
+
+(defun eldoc-box-scroll-up (&optional n)
+  "Scroll text of eldoc-box window upward N lines."
+  (interactive "p")
+  (with-selected-frame eldoc-box--frame
+    (with-current-buffer eldoc-box--buffer
+      (scroll-up n))))
+
+(defun eldoc-box-scroll-down (&optional n)
+  "Scroll text of eldoc-box window down N lines."
+  (interactive "p")
+  (eldoc-box-scroll-up (- (or n 1))))
+
+(defun eldoc-box-end (&optional n)
+  "Scroll text of eldoc-box window to the end.
+
+With numeric arg N, put window N/10 of the way from the end."
+  (interactive "P")
+  (with-selected-frame eldoc-box--frame
+    (with-current-buffer eldoc-box--buffer
+      (with-no-warnings
+        (end-of-buffer n)))))
+
+(defun eldoc-box-beginning (&optional n)
+  "Scroll text of eldoc-box window to the beginning.
+
+With numeric arg N, put window N/10 of the way from the beginning."
+  (interactive "P")
+  (eldoc-box-end (- 10 (if (numberp n) n 0))))
+
+(defvar eldoc-box-visible-frame-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map [remap scroll-other-window] #'eldoc-box-scroll-up)
+    (define-key map [remap scroll-other-window-down] #'eldoc-box-scroll-down)
+    (define-key map [remap beginning-of-buffer-other-window] #'eldoc-box-beginning)
+    (define-key map [remap end-of-buffer-other-window] #'eldoc-box-end)
+    map)
+  "Keymap for `eldoc-box' when eldoc-box's childframe is visible.")
 
 ;;;###autoload
 (define-minor-mode eldoc-box-hover-mode
