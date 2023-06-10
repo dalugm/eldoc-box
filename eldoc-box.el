@@ -332,14 +332,20 @@ STR has to be a proper documentation, not empty string, not nil, etc."
   "Return the side of the selected window.
 Symbol ‘left’ if the selected window is on the left, ‘right’ if
 on the right. Return ‘left’ if there is only one window."
-  ;; Get the window at point (x, y), where x = 0, y = the y coordinate
-  ;; of point. If this window is the selected window, the selected
-  ;; window is on the left, otherwise the selected window is on the
-  ;; right.
-  (let* ((y (cdr (posn-x-y (posn-at-point))))
-         (top (nth 1 (window-absolute-pixel-edges (selected-window))))
-         (left-window (window-at-x-y 0 (+ y top))))
-    (if (eq left-window (selected-window))
+  ;; Calculate the left and right distances to the frame edge of the
+  ;; active window.  If the left distance is less than or equal to the
+  ;; right distance, it indicates that the active window is on the left.
+  ;; Otherwise, it is on the right.
+  (let* ((window-left (nth 0 (window-absolute-pixel-edges)))
+         (window-right (nth 2 (window-absolute-pixel-edges)))
+         (frame-left (nth 0 (frame-edges)))
+         (frame-right (nth 2 (frame-edges)))
+         (distance-left (- window-left frame-left))
+         (distance-right (- frame-right window-right)))
+    ;; When `distance-left' equals `distance-right', it means there is
+    ;; only one window in current frame, or the current active window
+    ;; occupies the entire frame horizontally, return left.
+    (if (<= distance-left distance-right)
         'left
       'right)))
 
