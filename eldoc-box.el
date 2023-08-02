@@ -178,8 +178,17 @@ Its value should be a list: (left right top)"
 
 (defvar eldoc-box-position-function #'eldoc-box--default-upper-corner-position-function
   "Eldoc-box uses this function to set childframe's position.
-This should be a function that returns a (X . Y) cons cell.
-It will be passes with two arguments: WIDTH and HEIGHT of the childframe.")
+
+The function is passed two arguments, WIDTH and HEIGHT of the
+childframe, and should return a (X . Y) cons cell.")
+
+(defvar eldoc-box-at-point-position-function #'eldoc-box--default-at-point-position-function
+  "Eldoc-box uses this function to set childframe's position.
+This function is used in ‘eldoc-box-help-at-point’ and in
+‘eldoc-box-hover-at-point-mode’.
+
+The function is passed two arguments, WIDTH and HEIGHT of the
+childframe, and should return a (X . Y) cons cell.")
 
 (defcustom eldoc-box-fringe-use-same-bg t
   "T means fringe's background color is set to as same as that of default."
@@ -287,7 +296,7 @@ If point != last point, hide the childframe.")
   (interactive)
   (when (boundp 'eldoc--doc-buffer)
     (let ((eldoc-box-position-function
-           #'eldoc-box--default-at-point-position-function))
+           eldoc-box-at-point-position-function))
       (eldoc-box--display
        (with-current-buffer eldoc--doc-buffer
          (buffer-string))))
@@ -488,7 +497,7 @@ Checkout `lsp-ui-doc--make-frame', `lsp-ui-doc--move-frame'."
       (set-face-attribute 'internal-border frame :inherit 'eldoc-box-border)
       (when (facep 'child-frame-border)
         (set-face-background 'child-frame-border
-                             (face-attribute 'eldoc-box-border :background)
+                             (face-attribute 'eldoc-box-border :background nil t)
                              frame))
 
       ;; Add `eldoc-box-visible-frame-map'.
@@ -689,7 +698,7 @@ You can use \\[keyboard-quit] to hide the doc."
       (progn (when eldoc-box-hover-mode
                (eldoc-box-hover-mode -1))
              (setq-local eldoc-box-position-function
-                         #'eldoc-box--default-at-point-position-function)
+                         eldoc-box-at-point-position-function)
              (setq-local  eldoc-box-clear-with-C-g t)
              (remove-hook 'pre-command-hook #'eldoc-pre-command-refresh-echo-area t)
              (add-hook 'post-command-hook #'eldoc-box--follow-cursor t t)
