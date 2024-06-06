@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2018 Yuan Fu
 
-;; Version: 1.11.1
+;; Version: 1.12.1
 
 ;; Author: Yuan Fu <casouri@gmail.com>
 ;; URL: https://github.com/casouri/eldoc-box
@@ -295,16 +295,38 @@ If point != last point, hide the childframe.")
       (run-with-timer 0.1 nil #'eldoc-box--help-at-point-cleanup)
     (eldoc-box-quit-frame)))
 
+(defun eldoc-box--help-at-point-async-update (docs _interactive)
+  "Update async doc changes to help-at-point childframe.
+
+This is added to ‘eldoc-display-functions’, such that when async doc
+comes in, the at-point doc pop-up can be updated.
+
+For DOCS, see ‘eldoc-display-functions’."
+  (when (and eldoc-box--frame
+             (frame-visible-p eldoc-box--frame)
+             (eq eldoc-box--help-at-point-last-point (point)))
+    (let ((eldoc-box-position-function
+           eldoc-box-at-point-position-function))
+      (eldoc-box--display
+       (concat (mapcar #'car docs)
+               (concat "\n"
+                       (or eldoc-doc-buffer-separator "---")
+                       "\n"))))))
+
 ;;;###autoload
 (defun eldoc-box-help-at-point ()
   "Display documentation of the symbol at point."
   (interactive)
   (when (boundp 'eldoc--doc-buffer)
+    (add-hook 'eldoc-display-functions
+              #'eldoc-box--help-at-point-async-update 0 t)
     (let ((eldoc-box-position-function
-           eldoc-box-at-point-position-function))
+           eldoc-box-at-point-position-function)
+          (doc (with-current-buffer eldoc--doc-buffer
+                 (buffer-string))))
       (eldoc-box--display
-       (with-current-buffer eldoc--doc-buffer
-         (buffer-string))))
+       (if (equal doc "")
+           "There’s no doc to display at this point" doc)))
     (setq eldoc-box--help-at-point-last-point (point))
     (run-with-timer 0.1 nil #'eldoc-box--help-at-point-cleanup)
     (when eldoc-box-clear-with-C-g
@@ -883,7 +905,9 @@ height."
   "Discard the current childframe and regenerate one.
 This allows any change in childframe parameter to take effect."
   (interactive)
-  (setq eldoc-box--frame nil))
+  (when eldoc-box--frame
+    (delete-frame eldoc-box--frame)
+    (setq eldoc-box--frame nil)))
 
 (with-eval-after-load 'tab-bar
   (add-hook 'tab-bar-mode-hook #'eldoc-box-reset-frame))
