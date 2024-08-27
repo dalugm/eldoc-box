@@ -303,15 +303,16 @@ comes in, the at-point doc pop-up can be updated.
 
 For DOCS, see ‘eldoc-display-functions’."
   (when (and eldoc-box--frame
+             (frame-live-p eldoc-box--frame)
              (frame-visible-p eldoc-box--frame)
              (eq eldoc-box--help-at-point-last-point (point)))
     (let ((eldoc-box-position-function
            eldoc-box-at-point-position-function))
       (eldoc-box--display
-       (concat (mapcar #'car docs)
-               (concat "\n"
-                       (or eldoc-doc-buffer-separator "---")
-                       "\n"))))))
+       (string-join (mapcar #'car docs)
+                    (concat "\n"
+                            (or eldoc-doc-buffer-separator "---")
+                            "\n"))))))
 
 ;;;###autoload
 (defun eldoc-box-help-at-point ()
@@ -355,8 +356,9 @@ STR has to be a proper documentation, not empty string, not nil, etc."
       (setq-local cursor-type t)
       (when (bound-and-true-p global-tab-line-mode)
         (setq tab-line-format nil))
-      ;; without this, clicking childframe will make doc buffer the current buffer
-      ;; and `eldoc-box--maybe-cleanup' in `eldoc-box--cleanup-timer' will clear the childframe
+      ;; Without this, clicking childframe will make doc buffer the
+      ;; current buffer and `eldoc-box--maybe-cleanup' in
+      ;; `eldoc-box--cleanup-timer' will clear the childframe
       (buffer-face-set 'eldoc-box-body)
       (setq eldoc-box-hover-mode t)
       (erase-buffer)
@@ -552,7 +554,7 @@ Checkout `lsp-ui-doc--make-frame', `lsp-ui-doc--move-frame'."
 
       ;; Set size.
       (eldoc-box--update-childframe-geometry frame window)
-      ;; Set frame.
+      (set-window-margins window nil nil)
       (setq eldoc-box--frame frame)
       (with-selected-frame frame
         (run-hook-with-args 'eldoc-box-frame-hook main-frame))
