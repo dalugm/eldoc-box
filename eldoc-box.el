@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2018 Yuan Fu
 
-;; Version: 1.12.1
+;; Version: 1.13.2
 
 ;; Author: Yuan Fu <casouri@gmail.com>
 ;; URL: https://github.com/casouri/eldoc-box
@@ -384,6 +384,10 @@ For DOCS, see ‘eldoc-display-functions’."
   (buffer-face-set 'eldoc-box-body)
   (setq eldoc-box-hover-mode t)
   (visual-line-mode)
+  ;; Use buffer-local binding in the original buffer
+  ;; for the setup hook to allow original mode-specific setup.
+  (setq-local eldoc-box-buffer-setup-hook
+              (buffer-local-value 'eldoc-box-buffer-setup-hook orig-buffer))
   (run-hook-with-args 'eldoc-box-buffer-setup-hook orig-buffer)
   (run-hook-with-args 'eldoc-box-buffer-hook))
 
@@ -480,8 +484,9 @@ base on WIDTH and HEIGHT of childframe text window."
   (let* ((pos (eldoc-box--default-at-point-position-function-1 width height))
          (x (car pos))
          (y (cdr pos)))
-    (cons (or (eldoc-box--at-point-x-by-company) x)
-          y)))
+    (or (eldoc-box--at-point-x-y-by-corfu)
+        (cons (or (eldoc-box--at-point-x-by-company) x)
+              y))))
 
 (defvar eldoc-box--markdown-separator-display-props)
 
@@ -825,10 +830,26 @@ instead."
        (frame-pixel-width (company-box--get-frame))))
    (t nil)))
 
+;;;; Corfu compatibility
+
+(defvar corfu--frame)
+(defun eldoc-box--at-point-x-y-by-corfu ()
+  "Return the x-y position that accommodates corfu's popup.
+
+Returns a cons (X . Y) of pixel positions relative to the native frame.
+Return nil if corfu frame isn’t visible."
+  (when (and (boundp 'corfu--frame)
+             corfu--frame
+             (frame-live-p corfu--frame)
+             (frame-visible-p corfu--frame))
+    (cons (+ (car (frame-position corfu--frame))
+             (frame-pixel-width corfu--frame))
+          (cdr (frame-position corfu--frame)))))
+
 ;;;; Markdown compatibility
 
 (defvar-local eldoc-box--markdown-separator-display-props
-    '(space :width text)
+  '(space :width text)
   "Stores the display text property applied to markdown separators.
 
 Due to a bug, in ‘eldoc-box--update-childframe-geometry’, we
@@ -966,7 +987,7 @@ the compiler truncates the types and formatting wouldn’t work."
         fontified-type
         multi-line)
     (with-current-buffer workbuf
-      (funcall (buffer-local-value orig-buffer 'major-mode)))
+      (funcall (buffer-local-value 'major-mode orig-buffer)))
     ;; 1. Prettify types.
     (while (re-search-forward
             ;; Typescript uses doble quotes for literal unions like
