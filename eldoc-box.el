@@ -62,7 +62,7 @@
 ;; - ‘eldoc-box-cleanup-interval’
 ;; - ‘eldoc-box-fringe-use-same-bg’
 ;; - ‘eldoc-box-self-insert-command-list’
-;; - ‘eldoc-box-use-visible-frame-map’
+;; - ‘eldoc-box-enable-frame-map’
 ;; - ‘eldoc-box-hover-display-frame-above-point’
 
 ;;; Code:
@@ -129,8 +129,8 @@ This separator is used for the documentation shown in
 ‘eldoc-doc-buffer-separator’."
   :type 'string)
 
-(defcustom eldoc-box-use-visible-frame-map nil
-  "If non-nil, use `eldoc-box-visible-frame-map' when doc frame is visible."
+(defcustom eldoc-box-enable-frame-map nil
+  "If non-nil, use `eldoc-box-frame-map' when doc frame is visible."
   :type 'boolean)
 
 (defvar eldoc-box-frame-parameters
@@ -261,8 +261,8 @@ See `eldoc-box-inhibit-display-when-moving'."
 (defun eldoc-box-quit-frame ()
   "Hide documentation childframe."
   (interactive)
-  ;; Remove `eldoc-box-visible-frame-map'.
-  (when eldoc-box-use-visible-frame-map
+  ;; Remove `eldoc-box-frame-map'.
+  (when eldoc-box-enable-frame-map
     (dolist (mode '(eldoc-box-hover-mode eldoc-box-hover-at-point-mode))
       (setq minor-mode-overriding-map-alist
             (assq-delete-all mode minor-mode-overriding-map-alist))))
@@ -375,7 +375,7 @@ For DOCS, see ‘eldoc-display-functions’."
 
 ;; Please compiler.
 (defvar eldoc-box-hover-mode)
-(defvar eldoc-box-visible-frame-map)
+(defvar eldoc-box-frame-map)
 
 (defun eldoc-box-buffer-setup (orig-buffer)
   "Setup the doc buffer."
@@ -613,11 +613,11 @@ Checkout `lsp-ui-doc--make-frame', `lsp-ui-doc--move-frame'."
                              (face-attribute 'eldoc-box-border :background nil t)
                              frame))
 
-      ;; Add `eldoc-box-visible-frame-map'.
-      (when eldoc-box-use-visible-frame-map
+      ;; Add `eldoc-box-frame-map'.
+      (when eldoc-box-enable-frame-map
         (dolist (mode '(eldoc-box-hover-mode eldoc-box-hover-at-point-mode))
           (setf (alist-get mode minor-mode-overriding-map-alist)
-                eldoc-box-visible-frame-map)))
+                eldoc-box-frame-map)))
 
       ;; Set size.
       (eldoc-box--update-childframe-geometry frame window)
@@ -782,7 +782,7 @@ With numeric arg N, put window N/10 of the way from the beginning."
   (interactive "P")
   (eldoc-box-end (- 10 (if (numberp n) n 0))))
 
-(defvar eldoc-box-visible-frame-map
+(defvar eldoc-box-frame-map
   (let ((map (make-sparse-keymap)))
     (define-key map [remap scroll-other-window] #'eldoc-box-scroll-up)
     (define-key map [remap scroll-other-window-down] #'eldoc-box-scroll-down)
@@ -821,18 +821,6 @@ You can use \\[keyboard-quit] to hide the doc."
     (remove-hook 'post-command-hook #'eldoc-box--follow-cursor t)
     (kill-local-variable 'eldoc-box-position-function)
     (kill-local-variable 'eldoc-box-clear-with-C-g)))
-
-;;;; Eglot helper
-
-(make-obsolete 'eldoc-box-eglot-help-at-point 'eldoc-box-help-at-point
-               "v1.11.1")
-
-(defun eldoc-box-eglot-help-at-point ()
-  "Display documentation of the symbol at point.
-This is now obsolete, you should use ‘eldoc-box-help-at-point’
-instead."
-  (interactive)
-  (eldoc-box-help-at-point))
 
 ;;;; Company compatibility
 ;;
